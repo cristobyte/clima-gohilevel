@@ -6,6 +6,7 @@ const { auth } = NextAuth(authConfig);
 export default auth;
 
 export const config = {
-  // Run on everything except static assets, image optimizer, and the auth API.
-  matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\.svg).*)"],
+  // Run on everything except API routes (they self-authorize), static assets,
+  // and the image optimizer.
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\.svg).*)"],
 };
