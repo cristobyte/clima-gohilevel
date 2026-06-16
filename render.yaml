@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: clima-gohilevel
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: pnpm install --frozen-lockfile && pnpm db:generate && pnpm build
+    startCommand: node .next/standalone/server.js
+    preDeployCommand: pnpm db:migrate
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: clima-postgres
+          property: connectionString
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: NEXTAUTH_URL
+        sync: false
+      - key: NODE_ENV
+        value: production
+      - key: HOSTNAME
+        value: "0.0.0.0"
+      - key: PORT
+        value: "10000"
+
+databases:
+  - name: clima-postgres
+    region: oregon
+    plan: free
+    databaseName: clima
