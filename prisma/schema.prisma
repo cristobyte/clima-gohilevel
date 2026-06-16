@@ -1,0 +1,412 @@
+// GoHighLevel "Agency Pro" clone — data model
+// Multi-tenant: every tenant-owned row carries locationId (and/or agencyId).
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------------------------------------------------------
+// Identity & tenancy
+// ----------------------------------------------------------------------------
+
+enum Role {
+  AGENCY_ADMIN
+  AGENCY_USER
+  LOCATION_ADMIN
+  LOCATION_USER
+}
+
+model User {
+  id             String       @id @default(cuid())
+  email          String       @unique
+  name           String?
+  hashedPassword String?
+  image          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  accounts       Account[]
+  sessions       Session[]
+  memberships    Membership[]
+
+  assignedOpportunities Opportunity[]  @relation("OpportunityAssignee")
+  assignedConversations Conversation[] @relation("ConversationAssignee")
+  assignedAppointments  Appointment[]  @relation("AppointmentAssignee")
+  sentMessages          Message[]      @relation("MessageSender")
+}
+
+// NextAuth / Auth.js adapter models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Agency {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  logoUrl   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  locations   Location[]
+  memberships Membership[]
+}
+
+model Location {
+  id        String   @id @default(cuid())
+  agencyId  String
+  name      String
+  slug      String
+  timezone  String   @default("America/New_York")
+  address   String?
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  agency Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  memberships   Membership[]
+  contacts      Contact[]
+  pipelines     Pipeline[]
+  opportunities Opportunity[]
+  conversations Conversation[]
+  calendars     Calendar[]
+  appointments  Appointment[]
+  workflows     Workflow[]
+
+  @@unique([agencyId, slug])
+}
+
+model Membership {
+  id         String   @id @default(cuid())
+  userId     String
+  agencyId   String
+  locationId String?
+  role       Role
+  createdAt  DateTime @default(now())
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agency   Agency    @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  location Location? @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, agencyId, locationId])
+  @@index([userId])
+}
+
+// ----------------------------------------------------------------------------
+// CRM: Contacts, Pipelines, Opportunities
+// ----------------------------------------------------------------------------
+
+model Contact {
+  id          String   @id @default(cuid())
+  locationId  String
+  firstName   String
+  lastName    String?
+  email       String?
+  phone       String?
+  companyName String?
+  source      String?
+  tags        String[]
+  dnd         Boolean  @default(false)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  location      Location       @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  opportunities Opportunity[]
+  conversations Conversation[]
+  appointments  Appointment[]
+  enrollments   WorkflowEnrollment[]
+
+  @@index([locationId])
+  @@index([locationId, email])
+}
+
+model Pipeline {
+  id         String   @id @default(cuid())
+  locationId String
+  name       String
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  location      Location        @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  stages        PipelineStage[]
+  opportunities Opportunity[]
+
+  @@index([locationId])
+}
+
+model PipelineStage {
+  id         String   @id @default(cuid())
+  pipelineId String
+  name       String
+  order      Int      @default(0)
+  color      String?
+
+  pipeline      Pipeline      @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  opportunities Opportunity[]
+
+  @@index([pipelineId, order])
+}
+
+enum OpportunityStatus {
+  OPEN
+  WON
+  LOST
+  ABANDONED
+}
+
+model Opportunity {
+  id             String            @id @default(cuid())
+  locationId     String
+  pipelineId     String
+  stageId        String
+  contactId      String
+  name           String
+  monetaryValue  Decimal           @default(0) @db.Decimal(12, 2)
+  status         OpportunityStatus @default(OPEN)
+  assignedUserId String?
+  position       Float             @default(0)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  location     Location      @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  pipeline     Pipeline      @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  stage        PipelineStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  contact      Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  assignedUser User?         @relation("OpportunityAssignee", fields: [assignedUserId], references: [id])
+
+  @@index([locationId, pipelineId, stageId])
+  @@index([stageId, position])
+}
+
+// ----------------------------------------------------------------------------
+// Conversations
+// ----------------------------------------------------------------------------
+
+enum Channel {
+  SMS
+  EMAIL
+  WHATSAPP
+  FB
+  IG
+  WEBCHAT
+}
+
+enum ConversationStatus {
+  OPEN
+  CLOSED
+  SNOOZED
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+model Conversation {
+  id             String             @id @default(cuid())
+  locationId     String
+  contactId      String
+  channel        Channel
+  status         ConversationStatus @default(OPEN)
+  lastMessageAt  DateTime           @default(now())
+  unreadCount    Int                @default(0)
+  assignedUserId String?
+  createdAt      DateTime           @default(now())
+
+  location     Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  contact      Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  assignedUser User?     @relation("ConversationAssignee", fields: [assignedUserId], references: [id])
+  messages     Message[]
+
+  @@index([locationId, status, lastMessageAt])
+}
+
+model Message {
+  id             String           @id @default(cuid())
+  conversationId String
+  direction      MessageDirection
+  channel        Channel
+  body           String
+  senderUserId   String?
+  status         MessageStatus    @default(SENT)
+  createdAt      DateTime         @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User?        @relation("MessageSender", fields: [senderUserId], references: [id])
+
+  @@index([conversationId, createdAt])
+}
+
+// ----------------------------------------------------------------------------
+// Calendars & Appointments
+// ----------------------------------------------------------------------------
+
+enum AppointmentStatus {
+  BOOKED
+  CONFIRMED
+  SHOWED
+  NO_SHOW
+  CANCELLED
+}
+
+model Calendar {
+  id              String   @id @default(cuid())
+  locationId      String
+  name            String
+  slug            String
+  durationMinutes Int      @default(30)
+  color           String?
+  ownerUserId     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  location     Location      @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+
+  @@index([locationId])
+}
+
+model Appointment {
+  id             String            @id @default(cuid())
+  locationId     String
+  calendarId     String
+  contactId      String?
+  title          String
+  startTime      DateTime
+  endTime        DateTime
+  status         AppointmentStatus @default(BOOKED)
+  assignedUserId String?
+  notes          String?
+  createdAt      DateTime          @default(now())
+
+  location     Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  calendar     Calendar  @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  contact      Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  assignedUser User?     @relation("AppointmentAssignee", fields: [assignedUserId], references: [id])
+
+  @@index([locationId, startTime])
+  @@index([calendarId, startTime])
+}
+
+// ----------------------------------------------------------------------------
+// Workflows (automation)
+// ----------------------------------------------------------------------------
+
+enum WorkflowStatus {
+  DRAFT
+  PUBLISHED
+  PAUSED
+}
+
+enum TriggerType {
+  CONTACT_CREATED
+  OPPORTUNITY_STAGE_CHANGED
+  APPOINTMENT_BOOKED
+  INBOUND_MESSAGE
+  MANUAL
+}
+
+enum ActionType {
+  SEND_EMAIL
+  SEND_SMS
+  WAIT
+  CREATE_TASK
+  MOVE_OPPORTUNITY_STAGE
+  ADD_TAG
+  IF_ELSE
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  COMPLETED
+  FAILED
+}
+
+model Workflow {
+  id            String         @id @default(cuid())
+  locationId    String
+  name          String
+  status        WorkflowStatus @default(DRAFT)
+  triggerType   TriggerType    @default(MANUAL)
+  triggerConfig Json           @default("{}")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  location    Location             @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  steps       WorkflowStep[]
+  enrollments WorkflowEnrollment[]
+
+  @@index([locationId])
+}
+
+model WorkflowStep {
+  id         String     @id @default(cuid())
+  workflowId String
+  order      Int
+  actionType ActionType
+  config     Json       @default("{}")
+
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@index([workflowId, order])
+}
+
+model WorkflowEnrollment {
+  id            String           @id @default(cuid())
+  workflowId    String
+  contactId     String
+  currentOrder  Int              @default(0)
+  status        EnrollmentStatus @default(ACTIVE)
+  enrolledAt    DateTime         @default(now())
+  nextRunAt     DateTime?
+
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  contact  Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextRunAt])
+}
