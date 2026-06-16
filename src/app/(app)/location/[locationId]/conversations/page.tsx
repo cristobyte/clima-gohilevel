@@ -1,18 +1,17 @@
-import { requireLocation } from "@/lib/tenant";
-import { ModuleHeader } from "@/components/layout/module-header";
-import { Placeholder } from "@/components/layout/placeholder";
+import { MessageSquare } from "lucide-react";
 
-export default async function ConversationsPage({
-  params,
-}: {
-  params: Promise<{ locationId: string }>;
-}) {
-  const { locationId } = await params;
-  await requireLocation(locationId);
+export default function ConversationsEmpty() {
   return (
-    <div>
-      <ModuleHeader title="Conversations" />
-      <Placeholder />
+    <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+      <div className="bg-muted flex size-14 items-center justify-center rounded-full">
+        <MessageSquare className="text-muted-foreground size-6" />
+      </div>
+      <div>
+        <p className="font-medium">Select a conversation</p>
+        <p className="text-muted-foreground text-sm">
+          Choose a thread from the list to start messaging.
+        </p>
+      </div>
     </div>
   );
 }
