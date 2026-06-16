@@ -1,13 +1,10 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import { toast } from "sonner";
 import { CalendarPlus } from "lucide-react";
-import {
-  createCalendar,
-  type ApptFormState,
-} from "@/server/actions/appointment-actions";
+import { createCalendar } from "@/server/actions/appointment-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,19 +28,16 @@ function SubmitButton() {
 
 export function CalendarFormDialog({ locationId }: { locationId: string }) {
   const [open, setOpen] = useState(false);
-  const [state, formAction] = useActionState<ApptFormState, FormData>(
-    createCalendar.bind(null, locationId),
-    undefined,
-  );
 
-  useEffect(() => {
-    if (state?.ok) {
+  async function formAction(formData: FormData) {
+    const res = await createCalendar(locationId, undefined, formData);
+    if (res?.ok) {
       toast.success("Calendar created");
       setOpen(false);
-    } else if (state?.error) {
-      toast.error(state.error);
+    } else if (res?.error) {
+      toast.error(res.error);
     }
-  }, [state]);
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

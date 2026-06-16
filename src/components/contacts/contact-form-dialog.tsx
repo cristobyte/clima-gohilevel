@@ -1,13 +1,12 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import {
   createContact,
   updateContact,
-  type ContactFormState,
 } from "@/server/actions/contact-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,19 +58,16 @@ export function ContactFormDialog({
     : createContact.bind(null, locationId);
 
   const [open, setOpen] = useState(false);
-  const [state, formAction] = useActionState<ContactFormState, FormData>(
-    action,
-    undefined,
-  );
 
-  useEffect(() => {
-    if (state?.ok) {
+  async function formAction(formData: FormData) {
+    const res = await action(undefined, formData);
+    if (res?.ok) {
       toast.success(isEdit ? "Contact updated" : "Contact created");
       setOpen(false);
-    } else if (state?.error) {
-      toast.error(state.error);
+    } else if (res?.error) {
+      toast.error(res.error);
     }
-  }, [state, isEdit]);
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

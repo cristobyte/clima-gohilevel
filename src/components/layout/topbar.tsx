@@ -1,5 +1,5 @@
-import { Search } from "lucide-react";
 import { LocationSwitcher } from "./location-switcher";
+import { CommandPalette } from "./command-palette";
 import { UserMenu } from "./user-menu";
 import type { AccessibleLocation } from "@/server/locations";
 
@@ -21,10 +21,7 @@ export function TopBar({
       </div>
 
       <div className="flex items-center gap-3">
-        <div className="text-muted-foreground hidden items-center gap-2 rounded-md border px-3 py-1.5 text-sm md:flex">
-          <Search className="size-4" />
-          <span>Search…</span>
-        </div>
+        <CommandPalette locationId={currentLocationId} locations={locations} />
         <UserMenu name={userName} email={userEmail} />
       </div>
     </header>

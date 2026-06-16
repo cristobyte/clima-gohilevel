@@ -1,13 +1,10 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
-import {
-  createAppointment,
-  type ApptFormState,
-} from "@/server/actions/appointment-actions";
+import { createAppointment } from "@/server/actions/appointment-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,19 +47,16 @@ export function AppointmentFormDialog({
   defaultDate?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [state, formAction] = useActionState<ApptFormState, FormData>(
-    createAppointment.bind(null, locationId),
-    undefined,
-  );
 
-  useEffect(() => {
-    if (state?.ok) {
+  async function formAction(formData: FormData) {
+    const res = await createAppointment(locationId, undefined, formData);
+    if (res?.ok) {
       toast.success("Appointment booked");
       setOpen(false);
-    } else if (state?.error) {
-      toast.error(state.error);
+    } else if (res?.error) {
+      toast.error(res.error);
     }
-  }, [state]);
+  }
 
   const today = defaultDate ?? new Date().toISOString().slice(0, 10);
 

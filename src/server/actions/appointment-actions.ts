@@ -56,18 +56,12 @@ export async function createAppointment(
   return { ok: true };
 }
 
-const STATUSES = [
-  "BOOKED",
-  "CONFIRMED",
-  "SHOWED",
-  "NO_SHOW",
-  "CANCELLED",
-] as const;
+type ApptStatus = "BOOKED" | "CONFIRMED" | "SHOWED" | "NO_SHOW" | "CANCELLED";
 
 export async function setAppointmentStatus(
   locationId: string,
   appointmentId: string,
-  status: (typeof STATUSES)[number],
+  status: ApptStatus,
 ) {
   await requireLocation(locationId);
   await db.appointment.updateMany({
