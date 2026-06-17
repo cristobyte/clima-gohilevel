@@ -77,7 +77,7 @@ async function main() {
 
   // --- Locations ----------------------------------------------------------
   const locationSpecs = [
-    { slug: "sunrise-dental", name: "Sunrise Dental", phone: "+1 305 555 0142" },
+    { slug: "climatecnologia", name: "ClimaTecnologia", phone: "+1 305 555 0142" },
     { slug: "apex-fitness", name: "Apex Fitness", phone: "+1 305 555 0199" },
   ];
 
